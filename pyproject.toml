@@ -1,0 +1,21 @@
+[project]
+name = "ai-agentskills-study"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dashscope>=1.25.17",
+    "bs4>=0.0.2",
+    "deepagents>=0.4.12",
+    "ipython>=9.12.0",
+    "langchain>=1.2.15",
+    "langchain-anthropic>=1.4.0",
+    "langchain-community>=0.4.1",
+    "langchain-openai>=1.1.12",
+    "langgraph-checkpoint-redis>=0.4.0",
+    "lxml>=6.0.4",
+    "numpy>=2.4.4",
+    "redis>=7.4.0",
+    "pyyaml>=6.0.3",
+]
