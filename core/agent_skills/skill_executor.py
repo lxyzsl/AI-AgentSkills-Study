@@ -12,9 +12,11 @@ class SkillExecutor:
     def run_script(skill:Skill,script_name:str,args:List[str] = None)->str:
         """安全运行 scripts/ 下的 .py/.sh"""
         args = args or []
-        script_path = skill.skill_dir / "scripts" / script_name
+        # 提示词里已经家了"scripts"路径,所里拼接处级省略
+        # script_path = skill.skill_dir / "scripts" / script_name
+        script_path = skill.skill_dir / script_name
         if not script_path.exists():
-            return f"错误：脚本不存在{script_name}"
+            return f"错误：脚本不存在：{script_name}，执行路径：{script_path}"
         try:
             if script_path.suffix == ".py":
                 cmd = ["python", str(script_path)] + args
