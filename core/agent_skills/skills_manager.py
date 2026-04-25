@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Optional, List
 
 from core.agent_skills.skill import Skill
+from core.logger import logger
 
 
 class SkillsManager:
@@ -25,9 +26,9 @@ class SkillsManager:
                 skill = Skill.from_skill_md(md_path)
                 self.skills[skill.name] = skill
                 if self.debug:
-                    print(f"[Bootstrap] 发现技能：{skill.name}")
+                    logger.info(f"[Bootstrap] 发现技能：{skill.name}")
             except Exception as e:
-                print(f"[Bootstrap] 加载失败 {md_path}: {e}")
+                logger.error(f"[Bootstrap] 加载失败 {md_path}: {e}")
 
 
     def get(self,skill_name:str) -> Optional[Skill]:
