@@ -13,8 +13,7 @@ class SkillExecutor:
         """安全运行 scripts/ 下的 .py/.sh"""
         args = args or []
         # 提示词里已经家了"scripts"路径,所里拼接处级省略
-        # script_path = skill.skill_dir / "scripts" / script_name
-        script_path = skill.skill_dir / script_name
+        script_path = skill.skill_dir / "scripts" / script_name
         if not script_path.exists():
             return f"错误：脚本不存在：{script_name}，执行路径：{script_path}"
         try:

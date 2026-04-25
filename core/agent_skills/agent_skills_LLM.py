@@ -2,6 +2,7 @@
 LLM 基类继承（LangChain 标准架构）
 """
 import re
+from pathlib import Path
 from typing import Optional
 
 from langchain_core.language_models import BaseChatModel
@@ -11,7 +12,7 @@ from core.agent_skills.prompt_engine import PromptEngine
 from core.agent_skills.skill import Skill
 from core.agent_skills.skill_executor import SkillExecutor
 from core.agent_skills.skills_manager import SkillsManager
-from core.logger import logger
+from core.logger import logger, timer
 
 
 class AgentSkillsLLM:
@@ -27,7 +28,7 @@ class AgentSkillsLLM:
     def parse_command(text: str):
         load_match = re.search(r"\[LOAD_SKILL\]\s*(.+)", text)
         run_match = re.search(r"\[RUN_SCRIPT\]\s*(\S+)\s*(\S+)\s*(.*)", text)
-        return {
+        cmd = {
             "LOAD_SKILL": load_match.group(1) if load_match else None,
             "RUN": {
                 "skill": run_match.group(1) if run_match else None,
@@ -35,7 +36,25 @@ class AgentSkillsLLM:
                 "args": run_match.group(3).split() if run_match else []
             }
         }
+        if cmd["RUN"]["script"]:
+            cmd["RUN"]["script"] = AgentSkillsLLM.get_last_path_part(cmd["RUN"]["script"])
+        logger.info(f"cmd:{str(cmd)}")
+        return cmd
 
+    @staticmethod
+    def get_last_path_part(s: str) -> str:
+        """
+        /a/b/c/SKILL.md -> SKILL.md
+        ./skills/chat -> chat
+        D:\\tools\\app.exe -> app.exe
+        普通文本 -> 普通文本
+        """
+        # 先判断是否疑似路径：包含 / 或 \
+        if "/" in s or "\\" in s:
+            return Path(s).name  # 只保留最后一段
+        return s
+
+    @timer(name="Agent 完整对话流程")
     def chat(self, user_input: str) -> str:
         if self.debug:
             logger.info(f"用户输入：{user_input}")
@@ -48,7 +67,7 @@ class AgentSkillsLLM:
         if self.debug:
             logger.info("\n[日志] 第一轮 LLM 调用（仅元数据）")
             for message in messages:
-                logger.debug(message.pretty_repr())
+                logger.info(message.pretty_repr())
         first_reply = self.llm.invoke(messages).content
         if self.debug:
             logger.info(f"[LLM 第一轮回复] {first_reply}")
@@ -74,7 +93,7 @@ class AgentSkillsLLM:
             if self.debug:
                 logger.info("\n[日志] 第二轮 LLM 调用（技能已加载）")
                 for message in messages:
-                    logger.debug(message.pretty_repr())
+                    logger.info(message.pretty_repr())
             second_reply = self.llm.invoke(messages).content
             if self.debug:
                 logger.info(f"[LLM 第二轮回复] {second_reply}")

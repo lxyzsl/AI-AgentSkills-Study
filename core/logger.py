@@ -1,23 +1,25 @@
 ﻿import logging
 import sys
 import os
-from datetime import datetime
+import time
 from logging.handlers import RotatingFileHandler
+from datetime import datetime
+from core.settings import ENABLE_PERF_COUNTER, LOG_LEVEL
 
-# 日志颜色（控制台）
+# 颜色
 class ColorFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
     green = "\x1b[32;1m"
     reset = "\x1b[0m"
-    format_str = "%(asctime)s | %(levelname)-7s | %(message)s"
+    fmt = "%(asctime)s | %(levelname)-7s | %(message)s"
 
     FORMATS = {
-        logging.DEBUG: grey + format_str + reset,
-        logging.INFO: green + format_str + reset,
-        logging.WARNING: yellow + format_str + reset,
-        logging.ERROR: red + format_str + reset,
+        logging.DEBUG: grey + fmt + reset,
+        logging.INFO: green + fmt + reset,
+        logging.WARNING: yellow + fmt + reset,
+        logging.ERROR: red + fmt + reset,
     }
 
     def format(self, record):
@@ -25,40 +27,57 @@ class ColorFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
-# 文件格式（不带颜色）
 class FileFormatter(logging.Formatter):
-    format_str = "%(asctime)s | %(levelname)-7s | %(message)s"
     def __init__(self):
-        super().__init__(self.format_str, datefmt="%Y-%m-%d %H:%M:%S")
+        super().__init__(
+            "%(asctime)s | %(levelname)-7s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
 
-# 获取日志
 def get_logger(name="agent"):
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.handlers.clear()  # 避免重复
+    logger.setLevel(LOG_LEVEL)
+    logger.handlers.clear()
 
-    # 控制台输出
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(ColorFormatter())
+    # 控制台
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(LOG_LEVEL)
+    ch.setFormatter(ColorFormatter())
 
-    # 文件输出
-    log_dir = "logs"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # 文件
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
-    file_handler = RotatingFileHandler(
+    fh = RotatingFileHandler(
         f"logs/agent-{datetime.now().strftime('%Y%m%d')}.log",
-        maxBytes=10 * 1024 * 1024,  # 10MB
+        maxBytes=10 * 1024 * 1024,
         backupCount=10,
         encoding="utf-8"
     )
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(FileFormatter())
+    fh.setLevel(LOG_LEVEL)
+    fh.setFormatter(FileFormatter())
 
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+    logger.addHandler(ch)
+    logger.addHandler(fh)
     return logger
 
-# 全局单例日志
 logger = get_logger()
+
+# ======================
+# 耗时统计工具
+# ======================
+def timer(name="任务"):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not ENABLE_PERF_COUNTER:
+                return func(*args, **kwargs)
+
+            start = time.time()
+            logger.info(f"【耗时】开始 → {name}")
+            try:
+                return func(*args, **kwargs)
+            finally:
+                cost = round((time.time() - start) * 1000, 2)
+                logger.info(f"【耗时】结束 → {name} | 耗时 {cost} ms")
+        return wrapper
+    return decorator
