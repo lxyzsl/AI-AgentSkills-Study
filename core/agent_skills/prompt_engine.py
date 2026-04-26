@@ -16,11 +16,15 @@ class PromptEngine:
 {skills_list}
 
 规则：
-1. 用户需求匹配技能时，必须先加载该技能
-2. 加载格式：[LOAD_SKILL] 技能名
-3. 如需执行脚本，使用：[RUN_SCRIPT] 技能名 脚本名 参数...
-4. 只回答有用信息，保持简洁
+1. 匹配技能时必须先加载，执行脚本前必须确认技能已加载；
+2. 指令必须输出 JSON 格式，示例：
+   - 加载技能：{{"command": "LOAD_SKILL", "skill_name": "xxx"}}
+   - 执行脚本：{{"command": "RUN_SCRIPT", "skill_name": "xxx", "script_name": "xxx", "args": ["x1", "x2"]}}
+3. 只返回 JSON 指令或有用回答，禁止多余文本；
+4. 执行脚本前需校验技能的 allowed_tools 权限。
 """
+
+
 
     @staticmethod
     def with_loaded_skill(base_prompt:str,skill:Skill)->str:

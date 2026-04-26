@@ -5,8 +5,14 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, List
 
+from langchain_community.utils.math import cosine_similarity
+
+from model.ali_embedding import embedding
+
 from core.agent_skills.skill import Skill
 from core.logger import logger
+import numpy as np
+
 
 
 class SkillsManager:
@@ -15,6 +21,8 @@ class SkillsManager:
         self.ttl = ttl # 缓存有效期（秒）
         self.skills:Dict[str,Skill] = {} # name -> Skill
         self.debug = debug
+        self.embeddings = embedding  # 初始化 Embedding
+        self.skill_embeddings: Dict[str, np.ndarray] = {}  # 技能名 -> 嵌入向量
         self.bootstrap() # 启动时扫描所有技能（仅元数据）
 
     def bootstrap(self):
@@ -25,6 +33,9 @@ class SkillsManager:
             try:
                 skill = Skill.from_skill_md(md_path)
                 self.skills[skill.name] = skill
+                # 生成技能元数据的 Embedding（name+description+tags）
+                meta_text = f"{skill.name} {skill.description} {' '.join(skill.tags)}"
+                self.skill_embeddings[skill.name] = self.embeddings.embed_query(meta_text)
                 if self.debug:
                     logger.info(f"[Bootstrap] 发现技能：{skill.name}")
             except Exception as e:
@@ -44,18 +55,37 @@ class SkillsManager:
 
     def list_metadata(self) -> str:
         return "\n".join(s.metadata_prompt for s in self.list_all())
-    def search(self,query:str,limit:int = 5) -> List[Skill]:
-        """关键词匹配技能，最多匹配5个"""
-        query = query.lower()
-        matches = []
-        for s in self.skills.values():
-            if (
-                    (query in s.name.lower())
-                    or (query in s.description.lower())
-                    or (query in t.lower() for t in s.tags)
-            ):
-                matches.append(s)
-        return matches[:limit]
+
+
+    # def search(self,query:str,limit:int = 5) -> List[Skill]:
+    #     """关键词匹配技能，最多匹配5个"""
+    #     query = query.lower()
+    #     matches = []
+    #     for s in self.skills.values():
+    #         if (
+    #                 (query in s.name.lower())
+    #                 or (query in s.description.lower())
+    #                 or (query in t.lower() for t in s.tags)
+    #         ):
+    #             matches.append(s)
+    #     return matches[:limit]
+
+
+    def search(self, query: str, limit: int = 5) -> List[Skill]:
+        """语义匹配技能（替换关键词，对齐 Anthropic 标准）"""
+        if not self.skill_embeddings:
+            return []
+        # 生成查询的 Embedding
+        query_emb = self.embeddings.embed_query(query)
+        # 计算余弦相似度
+        similarities = {
+            name: cosine_similarity([query_emb], [emb])[0][0]
+            for name, emb in self.skill_embeddings.items()
+        }
+        # 按相似度排序，取前 limit
+        sorted_names = sorted(similarities.keys(), key=lambda x: similarities[x], reverse=True)
+        return [self.skills[name] for name in sorted_names[:limit] if name in self.skills]
+
 
     def load_skill(self,skill_name:str) -> Optional[Skill]:
         """触发加载完整节能 （Level 2）"""

@@ -24,22 +24,42 @@ class AgentSkillsLLM:
         self.loaded_skill: Optional[Skill] = None
         self.debug = debug
 
+    # @staticmethod
+    # def parse_command(text: str):
+    #     load_match = re.search(r"\[LOAD_SKILL\]\s*(.+)", text)
+    #     run_match = re.search(r"\[RUN_SCRIPT\]\s*(\S+)\s*(\S+)\s*(.*)", text)
+    #     cmd = {
+    #         "LOAD_SKILL": load_match.group(1) if load_match else None,
+    #         "RUN": {
+    #             "skill": run_match.group(1) if run_match else None,
+    #             "script": run_match.group(2) if run_match else None,
+    #             "args": run_match.group(3).split() if run_match else []
+    #         }
+    #     }
+    #     if cmd["RUN"]["script"]:
+    #         cmd["RUN"]["script"] = AgentSkillsLLM.get_last_path_part(cmd["RUN"]["script"])
+    #     logger.info(f"cmd:{str(cmd)}")
+    #     return cmd
+
+    # 2. 重构 parse_command 方法（解析 JSON 指令）
     @staticmethod
     def parse_command(text: str):
-        load_match = re.search(r"\[LOAD_SKILL\]\s*(.+)", text)
-        run_match = re.search(r"\[RUN_SCRIPT\]\s*(\S+)\s*(\S+)\s*(.*)", text)
-        cmd = {
-            "LOAD_SKILL": load_match.group(1) if load_match else None,
-            "RUN": {
-                "skill": run_match.group(1) if run_match else None,
-                "script": run_match.group(2) if run_match else None,
-                "args": run_match.group(3).split() if run_match else []
+        import json
+        # 提取文本中的 JSON 片段
+        json_match = re.search(r"\{[\s\S]*\}", text)
+        if not json_match:
+            return {"command": None, "skill_name": None, "script_name": None, "args": []}
+        try:
+            cmd = json.loads(json_match.group())
+            return {
+                "command": cmd.get("command"),
+                "skill_name": cmd.get("skill_name"),
+                "script_name": cmd.get("script_name"),
+                "args": cmd.get("args", []),
             }
-        }
-        if cmd["RUN"]["script"]:
-            cmd["RUN"]["script"] = AgentSkillsLLM.get_last_path_part(cmd["RUN"]["script"])
-        logger.info(f"cmd:{str(cmd)}")
-        return cmd
+        except json.JSONDecodeError:
+            logger.error("LLM 输出的指令 JSON 格式错误")
+            return {"command": None, "skill_name": None, "script_name": None, "args": []}
 
     @staticmethod
     def get_last_path_part(s: str) -> str:
@@ -58,8 +78,6 @@ class AgentSkillsLLM:
     def chat(self, user_input: str) -> str:
         if self.debug:
             logger.info(f"用户输入：{user_input}")
-
-
         messages = [
             SystemMessage(content=self.base_prompt),
             HumanMessage(content=user_input)
@@ -75,8 +93,8 @@ class AgentSkillsLLM:
         if self.debug:
             logger.info(f"[解析命令] {cmd}")
         # 2. 渐进式加载技能（Level 2）
-        if cmd["LOAD_SKILL"]:
-            skill_name = cmd["LOAD_SKILL"]
+        if cmd["command"] == 'LOAD_SKILL':
+            skill_name = cmd["skill_name"]
             if self.debug:
                 logger.info(f"\n[日志] 开始加载技能：{skill_name}")
             self.loaded_skill = self.skill_manager.load_skill(skill_name)
@@ -107,15 +125,14 @@ class AgentSkillsLLM:
             final_reply = first_reply
 
         # 3. 执行脚本（Level 3）✅ 修复：使用最新解析的命令
-        run = cmd["RUN"]
-        if run["skill"] and run["script"] and self.loaded_skill:
+        if cmd["skill_name"] and cmd["script_name"] and self.loaded_skill:
             # 安全校验：执行的技能必须是当前加载的技能
-            if run["skill"] != self.loaded_skill.name:
+            if cmd["skill_name"] != self.loaded_skill.name:
                 return "❌ 安全校验失败：只能执行当前已加载的技能"
 
             if self.debug:
-                logger.info(f"\n[日志] 执行脚本：{run['script']} 参数：{run['args']}")
-            exec_result = self.executor.run_script(self.loaded_skill, run["script"], run["args"])
+                logger.info(f"\n[日志] 执行脚本：{cmd['script_name']} 参数：{cmd['args']}")
+            exec_result = self.executor.run_script(self.loaded_skill, cmd["script_name"], cmd["args"])
             if self.debug:
                 logger.info(f"[脚本执行结果] {exec_result}")
             # 让LLM基于执行结果生成最终回答（优化体验）

@@ -31,6 +31,11 @@ class Skill:
     tags:list[str] = None
     allowed_tools:list[str] = None
     author:str = None
+    # 新增：Anthropic 要求的元数据
+    input_schema: dict = None  # 脚本入参Schema（JSON Schema）
+    output_schema: dict = None  # 脚本出参Schema
+    execution_constraints: dict = None  # 执行约束：{"timeout":30, "max_memory_mb":512}
+    permission_level: str = "basic"  # 权限等级：basic/admin/system
     # Level 2:Instructions（按需加载）
     instructions:str = ""
     # 路径
@@ -69,6 +74,10 @@ class Skill:
             tags=meta.get("tags",[]),
             allowed_tools=meta.get("allowed-tools",[]),
             author=meta.get("author",""),
+            input_schema=meta.get("input-schema", {}),
+            output_schema=meta.get("output-schema", {}),
+            execution_constraints=meta.get("execution-constraints", {"timeout": 30, "max_memory_mb": 512}),
+            permission_level=meta.get("permission-level", "basic"),
             instructions=instructions,
             skill_dir=md_path.parent,
             md_path=md_path,
