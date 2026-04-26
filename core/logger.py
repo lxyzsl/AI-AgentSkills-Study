@@ -4,6 +4,8 @@ import os
 import time
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
+
+from core.config_manager import get_project_root
 from core.settings import ENABLE_PERF_COUNTER, LOG_LEVEL
 
 # 颜色
@@ -49,7 +51,7 @@ def get_logger(name="agent"):
         os.makedirs("logs")
 
     fh = RotatingFileHandler(
-        f"logs/agent-{datetime.now().strftime('%Y%m%d')}.log",
+        f"{get_project_root()}/logs/agent-{datetime.now().strftime('%Y%m%d')}.log",
         maxBytes=10 * 1024 * 1024,
         backupCount=10,
         encoding="utf-8"
