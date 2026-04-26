@@ -5,7 +5,6 @@ import subprocess
 import threading
 import time
 from typing import List
-from pathlib import Path
 
 import psutil
 

@@ -51,10 +51,13 @@ class AgentSkillsLLM:
             return {"command": None, "skill_name": None, "script_name": None, "args": []}
         try:
             cmd = json.loads(json_match.group())
+            script_name = None
+            if cmd.get("script_name") is not None:
+                script_name = AgentSkillsLLM.get_last_path_part(cmd.get("script_name"))
             return {
                 "command": cmd.get("command"),
                 "skill_name": cmd.get("skill_name"),
-                "script_name": cmd.get("script_name"),
+                "script_name": script_name,
                 "args": cmd.get("args", []),
             }
         except json.JSONDecodeError:

@@ -11,7 +11,7 @@ def main():
     skill_manager = SkillsManager("./skills",debug=True)
     agent = AgentSkillsLLM(llm, skill_manager,debug=True)
     print("\n🚀 AgentSkills (LangChain 版) 已启动！")
-    print(agent.chat("上海天气"))
+    print(agent.chat("帮我找一个可以下载skill到项目的技能"))
 
 if __name__ == "__main__":
 
