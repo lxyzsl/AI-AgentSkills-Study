@@ -12,7 +12,6 @@ from core.agent_skills.prompt_engine import PromptEngine
 from core.agent_skills.skill import Skill
 from core.agent_skills.skill_executor import SkillExecutor
 from core.agent_skills.skills_manager import SkillsManager
-from core.builtin_tools import get_tool
 from core.logger import logger, timer
 
 
@@ -24,18 +23,6 @@ class AgentSkillsLLM:
         self.base_prompt = PromptEngine.base_system_prompt(self.skill_manager)
         self.loaded_skill: Optional[Skill] = None
         self.debug = debug
-
-    def _execute_tool(self, tool_name: str, tool_args: dict) -> str:
-        """执行内置工具并返回结果"""
-        tool = get_tool(tool_name)
-        if not tool:
-            return f"❌ 未知工具：{tool_name}"
-        # 后续可加入权限等级校验
-        try:
-            result = tool.handler(**tool_args)
-            return str(result)
-        except Exception as e:
-            return f"❌ 工具执行异常：{str(e)}"
 
     # 2. 重构 parse_command 方法（解析 JSON 指令）
     @staticmethod
@@ -153,66 +140,3 @@ class AgentSkillsLLM:
         if self.debug:
             logger.info(f"[最终回复] {final_reply}")
         return final_reply
-
-    # @timer(name="Agent 完整对话流程")
-    # def chat(self, user_input: str) -> str:
-    #     if self.debug:
-    #         logger.info(f"用户输入：{user_input}")
-    #
-    #     messages = [
-    #         SystemMessage(content=self.base_prompt),
-    #         HumanMessage(content=user_input)
-    #     ]
-    #
-    #     # 🔁 多轮循环：支持连续 Skill 加载 + 工具调用
-    #     MAX_TURNS = 5
-    #     for turn in range(MAX_TURNS):
-    #         if self.debug:
-    #             logger.info(f"\n[日志] 第 {turn + 1} 轮 LLM 调用")
-    #         reply = self.llm.invoke(messages).content
-    #         if self.debug:
-    #             logger.info(f"[LLM 回复] {reply}")
-    #
-    #         cmd = self.parse_command(reply)
-    #         if self.debug:
-    #             logger.info(f"[解析命令] {cmd}")
-    #
-    #         # ---- 处理 LOAD_SKILL ----
-    #         if cmd["command"] == "LOAD_SKILL":
-    #             skill_name = cmd["skill_name"]
-    #             self.loaded_skill = self.skill_manager.load_skill(skill_name)
-    #             if not self.loaded_skill:
-    #                 return f"❌ 技能 {skill_name} 不存在"
-    #             # 注入技能指令，继续下一轮
-    #             system = PromptEngine.with_loaded_skill(self.base_prompt, self.loaded_skill)
-    #             messages = [SystemMessage(content=system), HumanMessage(content=user_input)]
-    #             continue
-    #
-    #         # ---- 处理 RUN_SCRIPT ----
-    #         if cmd["command"] == "RUN_SCRIPT" and self.loaded_skill:
-    #             if cmd["skill_name"] != self.loaded_skill.name:
-    #                 return "❌ 安全校验失败：只能执行当前已加载的技能"
-    #             exec_result = self.executor.run_script(
-    #                 self.loaded_skill, cmd["script_name"], cmd["args"]
-    #             )
-    #             # 将执行结果反馈给 LLM 以生成最终回答
-    #             feedback = f"脚本执行结果：\n{exec_result}\n请根据此结果回答用户。"
-    #             messages.append(HumanMessage(content=feedback))
-    #             continue
-    #
-    #         # ---- 处理 USE_TOOL ----
-    #         if cmd["command"] == "USE_TOOL":
-    #             tool_name = cmd.get("tool_name")
-    #             tool_args = cmd.get("tool_args", {})
-    #             if not tool_name:
-    #                 return "❌ 工具调用缺少 tool_name"
-    #             tool_result = self._execute_tool(tool_name, tool_args)
-    #             # 将工具结果反馈给 LLM
-    #             feedback = f"工具 [{tool_name}] 返回结果：\n{tool_result}\n请根据此结果回答用户。"
-    #             messages.append(HumanMessage(content=feedback))
-    #             continue
-    #
-    #         # ---- 无命令，直接返回文本 ----
-    #         return reply
-    #
-    #     return "❌ 达到最大对话轮次，请简化你的请求。"

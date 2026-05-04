@@ -5,36 +5,19 @@ import json
 
 from core.agent_skills.skill import Skill
 from core.agent_skills.skills_manager import SkillsManager
-from core.builtin_tools import list_tools
 
 
 class PromptEngine:
 
-    @staticmethod
-    def tools_for_prompt() -> str:
-        """生成可用工具列表（供系统提示使用）"""
-        tools = list_tools()
-        if not tools:
-            return "（无内置工具）"
-        descs = []
-        for t in tools.values():
-            param_str = json.dumps(t.parameters, ensure_ascii=False)
-            descs.append(f"- {t.name}: {t.description}\n  参数：{param_str}\n  权限等级：{t.permission}")
-        return "\n".join(descs)
 
     @staticmethod
     def base_system_prompt(manager:SkillsManager)->str:
         """基础提示：仅所有技能元数据（Level 1）"""
         skills_list = manager.list_metadata()
-        tools_list = PromptEngine.tools_for_prompt()
         return f"""
 你是一个具备专业技能的 AI Agent。
 可用技能（仅名称与描述）：
 {skills_list}
-
-可用内置工具（可直接调用）：
-{tools_list}
-
 规则：
 1. 优先使用技能，若无匹配技能但存在合适的工具，则输出工具调用指令。
 2. 指令必须输出 JSON 格式：
@@ -43,7 +26,6 @@ class PromptEngine:
    - 调用工具：{{"command": "USE_TOOL", "tool_name": "xxx", "tool_args": {{...}}}}
 3. 只返回 JSON 指令或有用回答，禁止多余文本；
 4. 执行脚本前需校验技能的 allowed_tools 权限；
-5. 调用工具时需确认当前用户拥有足够权限等级（basic/admin/system）。
 """
 
 
